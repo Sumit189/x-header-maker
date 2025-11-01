@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>X Header Generator — 1500×500</title>
+  <style>
+    :root{--bg:#111;--panel:#0f1720;--muted:#94a3b8}
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;background:linear-gradient(180deg,#071326 0%, #031021 100%);color:#e6eef8;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:28px}
+    .wrap{width:1024px;max-width:calc(100% - 32px);display:grid;grid-template-columns:360px 1fr;gap:20px}
+    .panel{background:rgba(255,255,255,0.03);padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,0.6);}
+    h1{font-size:18px;margin:0 0 8px}
+    label{display:block;font-size:12px;color:var(--muted);margin-top:12px}
+    input[type=text], input[type=number], select, textarea{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit}
+    .row{display:flex;gap:8px}
+    .btn{display:inline-block;padding:8px 12px;border-radius:10px;background:#0ea5a4;color:#002;cursor:pointer;border:none}
+    .muted{color:var(--muted);font-size:12px}
+
+    .canvas-wrap{display:flex;flex-direction:column;align-items:center;gap:12px}
+    .preview{background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 6px 18px rgba(2,6,23,0.5)}
+
+    .controls{display:flex;flex-direction:column}
+    .control-row{display:flex;gap:8px;align-items:center;margin-top:8px}
+    .flex-between{display:flex;justify-content:space-between;align-items:center}
+    .small{font-size:12px}
+
+    /* helpers for draggable handles */
+    .handle{width:12px;height:12px;border-radius:50%;background:#fff;opacity:0.9;position:absolute;transform:translate(-50%,-50%);pointer-events:none}
+
+    footer{margin-top:12px;font-size:12px;color:var(--muted)}
+
+    @media (max-width:900px){.wrap{grid-template-columns:1fr;}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel controls">
+      <h1>X Header Generator</h1>
+      <div class="muted">Create a 1500×500 header image for x.com. Upload background, add text, position & export PNG.</div>
+
+      <label>Preset / Canvas size</label>
+      <select id="preset">
+        <option value="1500x500">X header — 1500 × 500 (recommended)</option>
+        <option value="1600x600">Wide example — 1600 × 600</option>
+        <option value="custom">Custom...</option>
+      </select>
+      <div id="customSize" style="display:none;margin-top:8px;" class="row">
+        <input type="number" id="canvasW" placeholder="width" value="1500" />
+        <input type="number" id="canvasH" placeholder="height" value="500" />
+        <button class="btn" id="applySize">Apply</button>
+      </div>
+
+      <label>Background image</label>
+      <input type="file" id="bgFile" accept="image/*" />
+      <div class="control-row">
+        <label class="small">Scale</label>
+        <input type="range" id="bgScale" min="0.2" max="3" step="0.01" value="1" style="flex:1" />
+      </div>
+      <div class="control-row">
+        <label class="small">Rotate (deg)</label>
+        <input type="range" id="bgRotate" min="-180" max="180" step="1" value="0" style="flex:1" />
+      </div>
+
+      <label>Overlay color (optional)</label>
+      <div class="row">
+        <input type="color" id="overlayColor" value="#000000" />
+        <input type="range" id="overlayOpacity" min="0" max="1" step="0.01" value="0.0" style="flex:1" />
+      </div>
+
+      <hr style="margin:12px 0;border:none;border-top:1px solid rgba(255,255,255,0.04)" />
+
+      <label>Text</label>
+      <input type="text" id="textInput" placeholder="Add headline or name" value="" />
+      <div class="control-row">
+        <label class="small">Font size</label>
+        <input type="range" id="fontSize" min="12" max="220" value="48" style="flex:1" />
+      </div>
+      <div class="row" style="margin-top:8px;gap:8px;">
+        <input type="color" id="textColor" value="#ffffff" />
+        <select id="fontFamily">
+          <option value="Inter, system-ui, -apple-system, 'Segoe UI', Roboto">Inter / System</option>
+          <option value="'Roboto', sans-serif">Roboto</option>
+          <option value="'Poppins', sans-serif">Poppins</option>
+          <option value="'Playfair Display', serif">Playfair (serif)</option>
+        </select>
+      </div>
+      <div class="control-row">
+        <label class="small">Text opacity</label>
+        <input type="range" id="textOpacity" min="0" max="1" step="0.01" value="1" style="flex:1" />
+      </div>
+
+      <div class="control-row">
+        <button class="btn" id="centerText">Center text</button>
+        <button class="btn" id="reset">Reset</button>
+      </div>
+
+      <hr style="margin:12px 0;border:none;border-top:1px solid rgba(255,255,255,0.04)" />
+
+      <div class="row" style="margin-top:6px;gap:8px;">
+        <button class="btn" id="downloadPng">Export PNG</button>
+        <button class="btn" id="downloadJpg">Export JPG</button>
+      </div>
+
+      <footer>Tip: Drag the background image and text in the preview to position them. Use scale/rotate for fine control.</footer>
+    </div>
+
+    <div class="panel canvas-wrap">
+      <div class="muted">Preview (editable)</div>
+      <div id="previewOuter" class="preview">
+        <!-- canvas will be inserted here -->
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <div class="muted">Canvas size:</div>
+        <div id="sizeLabel" class="muted">1500 × 500</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+// Basic header generator using an offscreen canvas and a visible preview canvas
+let canvasW = 1500, canvasH = 500;
+const previewOuter = document.getElementById('previewOuter');
+const sizeLabel = document.getElementById('sizeLabel');
+const preset = document.getElementById('preset');
+const customSize = document.getElementById('customSize');
+const canvas = document.createElement('canvas');
+const ctx = canvas.getContext('2d');
+canvas.width = canvasW; canvas.height = canvasH; canvas.style.width = '100%'; canvas.style.height = 'auto';
+previewOuter.appendChild(canvas);
+
+// State
+const state = {
+  bgImg: null,
+  bgX: 0, bgY: 0, bgScale: 1, bgRotate: 0,
+  overlayColor: '#000000', overlayOpacity: 0,
+  text: '', textX: canvasW/2, textY: canvasH/2, fontSize: 48, textColor: '#fff', textOpacity: 1, fontFamily: "Inter, system-ui, -apple-system",
+  dragging: null, dragStart: null
+};
+
+function resizeCanvas(w,h){canvasW=w;canvasH=h;canvas.width=w;canvas.height=h;sizeLabel.textContent = w + ' × ' + h; state.textX = Math.min(state.textX, w-20); state.textY = Math.min(state.textY, h-20); render();}
+
+// Inputs
+const bgFile = document.getElementById('bgFile');
+const bgScale = document.getElementById('bgScale');
+const bgRotate = document.getElementById('bgRotate');
+const overlayColor = document.getElementById('overlayColor');
+const overlayOpacity = document.getElementById('overlayOpacity');
+const textInput = document.getElementById('textInput');
+const fontSize = document.getElementById('fontSize');
+const textColor = document.getElementById('textColor');
+const fontFamily = document.getElementById('fontFamily');
+const textOpacity = document.getElementById('textOpacity');
+const centerText = document.getElementById('centerText');
+const resetBtn = document.getElementById('reset');
+const downloadPng = document.getElementById('downloadPng');
+const downloadJpg = document.getElementById('downloadJpg');
+const applySize = document.getElementById('applySize');
+const canvasWInput = document.getElementById('canvasW');
+const canvasHInput = document.getElementById('canvasH');
+
+preset.addEventListener('change', ()=>{
+  if(preset.value === 'custom') customSize.style.display='flex';
+  else{ customSize.style.display='none'; const [w,h] = preset.value.split('x').map(Number); canvasWInput.value=w; canvasHInput.value=h; resizeCanvas(w,h); }
+});
+applySize.addEventListener('click', ()=>{const w=Number(canvasWInput.value)||canvasW; const h=Number(canvasHInput.value)||canvasH; resizeCanvas(w,h);});
+
+bgFile.addEventListener('change', (e)=>{
+  const file = e.target.files && e.target.files[0];
+  if(!file) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image(); img.onload = ()=>{
+    state.bgImg = img;
+    // center background
+    state.bgX = canvasW/2; state.bgY = canvasH/2; state.bgScale = 1; render();
+  };
+  img.src = url;
+});
+
+bgScale.addEventListener('input', ()=>{state.bgScale = Number(bgScale.value); render();});
+bgRotate.addEventListener('input', ()=>{state.bgRotate = Number(bgRotate.value); render();});
+overlayColor.addEventListener('input', ()=>{state.overlayColor = overlayColor.value; render();});
+overlayOpacity.addEventListener('input', ()=>{state.overlayOpacity = Number(overlayOpacity.value); render();});
+
+textInput.addEventListener('input', ()=>{state.text = textInput.value; render();});
+fontSize.addEventListener('input', ()=>{state.fontSize = Number(fontSize.value); render();});
+textColor.addEventListener('input', ()=>{state.textColor = textColor.value; render();});
+fontFamily.addEventListener('change', ()=>{state.fontFamily = fontFamily.value; render();});
+textOpacity.addEventListener('input', ()=>{state.textOpacity = Number(textOpacity.value); render();});
+centerText.addEventListener('click', ()=>{state.textX = canvasW/2; state.textY = canvasH/2; render();});
+resetBtn.addEventListener('click', ()=>{reset();});
+
+function reset(){state.bgImg = null; state.bgX = canvasW/2; state.bgY = canvasH/2; state.bgScale = 1; state.bgRotate = 0; state.overlayOpacity = 0; state.text=''; textInput.value=''; render();}
+
+// Dragging behavior for bg and text
+let hit = null; // 'bg' or 'text'
+canvas.addEventListener('pointerdown', (e)=>{
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (canvas.width/rect.width);
+  const y = (e.clientY - rect.top) * (canvas.height/rect.height);
+  // check text hitbox
+  ctx.font = `bold ${state.fontSize}px ${state.fontFamily}`;
+  const metrics = ctx.measureText(state.text || '');
+  const textW = metrics.width; const textH = state.fontSize;
+  const textLeft = state.textX - textW/2; const textTop = state.textY - textH/2;
+  if(x >= textLeft && x <= textLeft + textW && y >= textTop && y <= textTop + textH){ hit='text'; }
+  else if(state.bgImg){ // treat whole canvas as bg draggable
+    hit='bg';
+  } else hit=null;
+  state.dragging = hit;
+  state.dragStart = {x, y, bgX: state.bgX, bgY: state.bgY, textX: state.textX, textY: state.textY};
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', (e)=>{
+  if(!state.dragging) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (canvas.width/rect.width);
+  const y = (e.clientY - rect.top) * (canvas.height/rect.height);
+  const dx = x - state.dragStart.x; const dy = y - state.dragStart.y;
+  if(state.dragging === 'bg'){ state.bgX = state.dragStart.bgX + dx; state.bgY = state.dragStart.bgY + dy; }
+  if(state.dragging === 'text'){ state.textX = state.dragStart.textX + dx; state.textY = state.dragStart.textY + dy; }
+  render();
+});
+canvas.addEventListener('pointerup', (e)=>{ state.dragging = null; state.dragStart = null; canvas.releasePointerCapture(e.pointerId); });
+
+// Render
+function render(){
+  // clear
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // background fill
+  ctx.fillStyle = '#0a0f14'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  // draw bg image centered at bgX,bgY with scale & rotation
+  if(state.bgImg){
+    ctx.save();
+    ctx.translate(state.bgX, state.bgY);
+    ctx.rotate(state.bgRotate * Math.PI/180);
+    const iw = state.bgImg.width * state.bgScale;
+    const ih = state.bgImg.height * state.bgScale;
+    ctx.drawImage(state.bgImg, -iw/2, -ih/2, iw, ih);
+    ctx.restore();
+  }
+  // overlay
+  if(state.overlayOpacity > 0){ ctx.fillStyle = state.overlayColor; ctx.globalAlpha = state.overlayOpacity; ctx.fillRect(0,0,canvas.width,canvas.height); ctx.globalAlpha = 1; }
+
+  // text
+  if(state.text){
+    ctx.save();
+    ctx.font = `bold ${state.fontSize}px ${state.fontFamily}`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = state.textColor; ctx.globalAlpha = state.textOpacity;
+    // shadow for readability
+    ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = Math.max(2, state.fontSize * 0.06);
+    ctx.fillText(state.text, state.textX, state.textY);
+    ctx.restore();
+  }
+
+  // draw guides (small handles) to show positions
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  // text center handle
+  ctx.beginPath(); ctx.arc(state.textX, state.textY, 6, 0, Math.PI*2); ctx.fill();
+  // bg center handle
+  if(state.bgImg){ ctx.beginPath(); ctx.arc(state.bgX, state.bgY, 6, 0, Math.PI*2); ctx.fill(); }
+  ctx.restore();
+}
+
+render();
+
+// Export
+function exportImage(type='png', quality=0.92){
+  // create an offscreen canvas at exact pixel dims (we already have canvas)
+  if(type==='png'){
+    const data = canvas.toDataURL('image/png');
+    downloadDataURL(data, `x-header-${canvasW}x${canvasH}.png`);
+  } else {
+    const data = canvas.toDataURL('image/jpeg', quality);
+    downloadDataURL(data, `x-header-${canvasW}x${canvasH}.jpg`);
+  }
+}
+function downloadDataURL(dataurl, filename){
+  const a = document.createElement('a'); a.href=dataurl; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); }
+
+downloadPng.addEventListener('click', ()=>exportImage('png'));
+downloadJpg.addEventListener('click', ()=>exportImage('jpg', 0.9));
+
+// Allow keyboard nudges for selected element
+window.addEventListener('keydown', (e)=>{
+  const step = e.shiftKey?10:2;
+  if(e.key === 'ArrowLeft'){ state.textX -= step; render(); }
+  if(e.key === 'ArrowRight'){ state.textX += step; render(); }
+  if(e.key === 'ArrowUp'){ state.textY -= step; render(); }
+  if(e.key === 'ArrowDown'){ state.textY += step; render(); }
+});
+
+// Make canvas responsive in preview area while keeping actual pixel resolution for export
+function fitCanvasToPreview(){
+  const outerW = previewOuter.clientWidth;
+  // set canvas style width to fit container but actual canvas.width remains pixel-perfect
+  canvas.style.width = Math.min(outerW, 1000) + 'px';
+}
+window.addEventListener('resize', fitCanvasToPreview); fitCanvasToPreview();
+
+</script>
+</body>
+</html>
